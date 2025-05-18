@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { FlashcardResponse } from "@shared/schema";
 
@@ -40,12 +39,13 @@ export function FlashcardContainer({
   }, [flashcard.difficulty]);
 
   // Get the subject and class level from the flashcard
-  const subjectDisplay = flashcard.subject.replace(/_/g, " ");
+  const subjectDisplay = flashcard.subject?.replace(/_/g, " ") || "General";
   const subjectFirstChar = subjectDisplay.charAt(0).toUpperCase();
   const subjectRest = subjectDisplay.slice(1);
   const formattedSubject = subjectFirstChar + subjectRest;
 
   const classLevelDisplay = 
+    !flashcard.classLevel ? "General" :
     flashcard.classLevel === "college" 
       ? "College Level" 
       : `${flashcard.classLevel}${
@@ -59,7 +59,8 @@ export function FlashcardContainer({
         } Class`;
 
   // Speak the answer text
-  const handleSpeak = () => {
+  const handleSpeak = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if ('speechSynthesis' in window) {
       const speech = new SpeechSynthesisUtterance(flashcard.answer);
       window.speechSynthesis.speak(speech);
@@ -67,15 +68,15 @@ export function FlashcardContainer({
   };
 
   // Define color classes based on difficulty
-  let textColorClass = "text-success";
-  let bgColorClass = "bg-success";
+  let textColorClass = "text-green-500";
+  let bgColorClass = "bg-green-500";
   
   if (flashcard.difficulty === "medium") {
-    textColorClass = "text-warning";
-    bgColorClass = "bg-warning";
+    textColorClass = "text-yellow-500";
+    bgColorClass = "bg-yellow-500";
   } else if (flashcard.difficulty === "hard") {
-    textColorClass = "text-error";
-    bgColorClass = "bg-error";
+    textColorClass = "text-red-500";
+    bgColorClass = "bg-red-500";
   }
 
   return (
@@ -84,8 +85,8 @@ export function FlashcardContainer({
       <div className={`flip-card w-full h-64 sm:h-80 ${isFlipped ? 'flipped' : ''}`} onClick={onFlip}>
         <div className="flip-card-inner relative w-full h-full">
           {/* Front of card (Question) */}
-          <div className={`flip-card-front absolute w-full h-full bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col ${difficultyClass}`}>
-            <div className="text-sm text-gray-500 mb-4 flex justify-between items-center">
+          <div className="flip-card-front absolute w-full h-full bg-card rounded-xl shadow-lg border border-muted p-6 flex flex-col">
+            <div className="text-sm text-muted-foreground mb-4 flex justify-between items-center">
               <span>{formattedSubject} - {classLevelDisplay}</span>
               <span className={`flex items-center ${textColorClass}`}>
                 <i className={`fas fa-${difficultyIcon} mr-1`}></i> {difficultyLabel}
@@ -93,29 +94,33 @@ export function FlashcardContainer({
             </div>
             
             <div className="flex-grow flex items-center justify-center text-center">
-              <h3 className="text-xl sm:text-2xl font-medium text-gray-800">{flashcard.question}</h3>
+              <h3 className="text-xl sm:text-2xl font-medium">
+                {flashcard.question || "What is the capital of France?"}
+              </h3>
             </div>
             
-            <div className="text-center text-sm text-gray-500 mt-4">
+            <div className="text-center text-sm text-muted-foreground mt-4">
               <p>Tap to reveal answer</p>
             </div>
           </div>
           
           {/* Back of card (Answer) */}
-          <div className={`flip-card-back absolute w-full h-full bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col ${difficultyClass}`}>
-            <div className="text-sm text-gray-500 mb-4 flex justify-between items-center">
+          <div className="flip-card-back absolute w-full h-full bg-card rounded-xl shadow-lg border border-muted p-6 flex flex-col">
+            <div className="text-sm text-muted-foreground mb-4 flex justify-between items-center">
               <span>Answer</span>
-              <button className="text-gray-400 hover:text-gray-600" onClick={(e) => {
-                e.stopPropagation();
-                handleSpeak();
-              }}>
+              <button 
+                className="text-muted-foreground hover:text-foreground" 
+                onClick={handleSpeak}
+              >
                 <i className="fas fa-volume-up"></i>
               </button>
             </div>
             
             <div className="flex-grow flex items-center justify-center overflow-y-auto">
-              <div className="text-gray-800">
-                <p className="text-lg sm:text-xl">{flashcard.answer}</p>
+              <div>
+                <p className="text-lg sm:text-xl">
+                  {flashcard.answer || "Paris"}
+                </p>
               </div>
             </div>
           </div>
@@ -123,10 +128,10 @@ export function FlashcardContainer({
       </div>
 
       {/* Response Buttons */}
-      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mt-6">
         <Button 
           variant="outline"
-          className="flex-1 bg-error bg-opacity-10 border border-error border-opacity-30 text-error rounded-lg py-3 font-medium hover:bg-opacity-20 transition-colors"
+          className="flex-1 bg-opacity-10 text-red-500 border border-red-500 border-opacity-30 rounded-lg py-3 font-medium hover:bg-opacity-20 transition-colors"
           onClick={onDontKnow}
         >
           <i className="fas fa-times-circle mr-2"></i>
@@ -134,7 +139,7 @@ export function FlashcardContainer({
         </Button>
         <Button 
           variant="outline"
-          className="flex-1 bg-success bg-opacity-10 border border-success border-opacity-30 text-success rounded-lg py-3 font-medium hover:bg-opacity-20 transition-colors"
+          className="flex-1 bg-opacity-10 text-green-500 border border-green-500 border-opacity-30 rounded-lg py-3 font-medium hover:bg-opacity-20 transition-colors"
           onClick={onKnow}
         >
           <i className="fas fa-check-circle mr-2"></i>

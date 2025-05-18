@@ -304,13 +304,25 @@ export default function Flashcards() {
             <h1 className="text-xl font-bold">FlashLearn</h1>
           </div>
           
-          {!isMobile && (
-            <ScoreDisplay 
-              correct={stats.correct}
-              incorrect={stats.incorrect}
-              percentage={stats.percentage}
-            />
-          )}
+          <div className="flex items-center space-x-4">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="flex items-center space-x-1 border-red-400 text-red-500"
+              onClick={() => setLocation('/')}
+            >
+              <i className="fas fa-sign-out-alt"></i>
+              <span>Quit Session</span>
+            </Button>
+            
+            {!isMobile && (
+              <ScoreDisplay 
+                correct={stats.correct}
+                incorrect={stats.incorrect}
+                percentage={stats.percentage}
+              />
+            )}
+          </div>
         </div>
       </header>
 
