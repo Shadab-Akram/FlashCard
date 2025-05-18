@@ -123,7 +123,7 @@ export default function Flashcards() {
     } else {
       // Submit round results when all cards have been answered
       submitRoundMutation.mutate({
-        sessionId,
+        sessionId: sessionId || "",
         results: [...results, { flashcardId, isCorrect }],
         round,
         totalRounds,
@@ -179,13 +179,13 @@ export default function Flashcards() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 font-sans text-gray-800">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <i className="fas fa-brain text-primary-400 text-2xl"></i>
-            <h1 className="text-xl font-bold text-gray-800">FlashLearn</h1>
+            <i className="fas fa-brain text-primary text-2xl"></i>
+            <h1 className="text-xl font-bold">FlashLearn</h1>
           </div>
           
           {!isMobile && (

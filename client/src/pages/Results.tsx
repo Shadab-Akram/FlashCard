@@ -2,6 +2,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import StatCard from "@/components/StatCard";
 
 export default function Results() {
@@ -51,13 +52,16 @@ export default function Results() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 font-sans text-gray-800">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <i className="fas fa-brain text-primary-400 text-2xl"></i>
-            <h1 className="text-xl font-bold text-gray-800">FlashLearn</h1>
+            <i className="fas fa-brain text-primary text-2xl"></i>
+            <h1 className="text-xl font-bold">FlashLearn</h1>
+          </div>
+          <div>
+            <ThemeToggle />
           </div>
         </div>
       </header>
