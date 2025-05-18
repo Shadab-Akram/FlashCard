@@ -185,6 +185,9 @@ export default function StudySettings({ onClose }: StudySettingsProps) {
       
       // Get questions based on the subject and class level
       let questions;
+      
+      // Important: Only use the specific subject the user selected
+      // No mixing of subjects in the same session
       if ('pdfId' in data && data.pdfId) {
         questions = getPdfQuestions(data.pdfId);
       } else if (data.subject === 'mathematics') {
@@ -195,15 +198,19 @@ export default function StudySettings({ onClose }: StudySettingsProps) {
         questions = getOtherQuestions();
       }
       
-      // Create flashcards with appropriate difficulty
-      const flashcards = questions.slice(0, data.count).map((q, index) => ({
-        id: index + 1,
-        question: q.question,
-        answer: q.answer,
-        subject: data.subject,
-        classLevel: data.classLevel,
-        difficulty: data.difficulty
-      }));
+      // Create flashcards with appropriate difficulty - exactly matching user's selections
+      // Limit to exactly the count requested
+      const flashcards = questions.slice(0, data.count).map((q, index) => {
+        // Each card has exactly the subjects and class level the user selected - no mixing
+        return {
+          id: index + 1,
+          question: q.question,
+          answer: q.answer,
+          subject: data.subject,
+          classLevel: data.classLevel,
+          difficulty: data.difficulty
+        };
+      });
       
       // Create a simulated study session with our questions
       const mockData = {

@@ -344,17 +344,20 @@ export default function Flashcards() {
           {/* Progress Tracking */}
           <div className="mb-6 w-full">
             <div className="flex justify-between items-center mb-2">
-              <div className="text-sm font-medium text-gray-700">
-                Progress: <span>{currentIndex + 1}</span>/<span>{data.flashcards.length}</span>
+              <div className="text-sm font-medium text-muted-foreground">
+                Progress: <span className="font-bold text-foreground">{currentIndex + 1}</span>/<span>{data.flashcards.length}</span>
               </div>
-              <div className="text-sm font-medium text-gray-700">
-                Round: <span>{round}</span>/<span>{totalRounds}</span>
+              <div className="text-sm font-medium text-muted-foreground">
+                Round: <span className="font-bold text-foreground">{round}</span>/<span>{totalRounds}</span>
               </div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
               <div 
-                className="bg-primary-400 h-2.5 rounded-full" 
-                style={{ width: `${((currentIndex + 1) / data.flashcards.length) * 100}%` }}
+                className="bg-primary h-3 rounded-full animate-progress" 
+                style={{ 
+                  width: `${((currentIndex + 1) / data.flashcards.length) * 100}%`,
+                  transition: "width 0.5s ease-out"
+                }}
               ></div>
             </div>
           </div>
