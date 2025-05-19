@@ -7,6 +7,21 @@ import ScoreDisplay from "@/components/ScoreDisplay";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useMediaQuery } from "@/hooks/use-mobile";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface Flashcard {
+  id: number;
+  question: string;
+  answer: string;
+  subject: string;
+  difficulty: string;
+  isCorrect?: boolean;
+}
+
+interface Result {
+  flashcardId: number;
+  isCorrect: boolean;
+}
 
 export default function Flashcards() {
   const { sessionId } = useParams();
@@ -27,85 +42,26 @@ export default function Flashcards() {
     percentage: 0,
   });
 
+  // Add state for confirmation dialog
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+
   // Fetch flashcards for current session
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/study-session", sessionId],
     queryFn: async () => {
       if (!sessionId) return null;
       
-      // Check if this is a mock session ID (created when OpenAI API is unavailable)
-      const isMockSession = sessionId?.startsWith('mock-session-');
-      
-      // If we already have data stored in sessionStorage, use it
+      // Get data from sessionStorage
       const storedData = sessionStorage.getItem(`flashcards-${sessionId}`);
       if (storedData) {
-        return JSON.parse(storedData);
+        const data = JSON.parse(storedData);
+        setRound(data.round || 1);
+        setTotalRounds(data.totalRounds || 1);
+        return data;
       }
       
-      // For mock sessions, create simulated data
-      if (isMockSession) {
-        // Create mock flashcards since we don't have real API data
-        return {
-          sessionId: sessionId,
-          flashcards: [
-            {
-              id: 1,
-              question: "What is the capital of France?",
-              answer: "Paris",
-              subject: "geography",
-              classLevel: "5",
-              difficulty: "easy"
-            },
-            {
-              id: 2,
-              question: "Who wrote Romeo and Juliet?",
-              answer: "William Shakespeare",
-              subject: "literature",
-              classLevel: "9",
-              difficulty: "medium"
-            },
-            {
-              id: 3,
-              question: "What is the formula for water?",
-              answer: "H₂O",
-              subject: "science",
-              classLevel: "5",
-              difficulty: "easy"
-            },
-            {
-              id: 4,
-              question: "What is 8 × 7?",
-              answer: "56",
-              subject: "mathematics",
-              classLevel: "5",
-              difficulty: "medium"
-            },
-            {
-              id: 5,
-              question: "Who painted the Mona Lisa?",
-              answer: "Leonardo da Vinci",
-              subject: "art",
-              classLevel: "9",
-              difficulty: "medium"
-            }
-          ],
-          round: 1,
-          totalRounds: 3
-        };
-      }
-      
-      // Otherwise fetch from API
-      try {
-        const response = await fetch(`/api/session-stats/${sessionId}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch session data");
-        }
-        return await response.json();
-      } catch (error) {
-        console.error("Error fetching session data:", error);
-        throw new Error("Failed to fetch session data");
-      }
-    },
+      throw new Error("No session data found");
+    }
   });
 
   // Helper function to save to session storage
@@ -230,20 +186,66 @@ export default function Flashcards() {
     
     // Add result
     const flashcardId = data.flashcards[currentIndex].id;
-    setResults([...results, { flashcardId, isCorrect }]);
+    const newResults = [...results, { flashcardId, isCorrect }];
+    setResults(newResults);
     
-    // Move to next card
-    if (currentIndex < data.flashcards.length - 1) {
+    // Calculate if this was the last card
+    const isLastCard = currentIndex === data.flashcards.length - 1;
+    const isLastRound = round >= totalRounds;
+
+    if (isLastCard) {
+      if (isLastRound) {
+        // Calculate final stats
+        const correctCount = newResults.filter(r => r.isCorrect).length;
+        const incorrectCount = newResults.length - correctCount;
+        const accuracy = Math.round((correctCount / newResults.length) * 100);
+        
+        // Save final results with complete stats
+        const finalResults = {
+          correctCount,
+          incorrectCount,
+          accuracy,
+          timeSpent: "Session Complete",
+          mostDifficultSubject: data.flashcards[0].subject,
+          flashcards: data.flashcards.map((card: Flashcard) => ({
+            ...card,
+            isCorrect: newResults.find(r => r.flashcardId === card.id)?.isCorrect || false
+          })),
+          stats: {
+            correct: correctCount,
+            incorrect: incorrectCount,
+            percentage: accuracy
+          },
+          round,
+          totalRounds
+        };
+        
+        // Store final results
+        sessionStorage.setItem(`results-${sessionId}`, JSON.stringify(finalResults));
+        setLocation(`/results/${sessionId}`);
+      } else {
+        // Start next round
+        setRound(round + 1);
+        setCurrentIndex(0);
+        setResults([]);
+        setIsFlipped(false);
+        
+        // Update session storage with new round
+        const sessionData = {
+          ...data,
+          round: round + 1
+        };
+        sessionStorage.setItem(`flashcards-${sessionId}`, JSON.stringify(sessionData));
+        
+        toast({
+          title: `Round ${round} Complete!`,
+          description: `Starting round ${round + 1} of ${totalRounds}`,
+        });
+      }
+    } else {
+      // Move to next card
       setCurrentIndex(currentIndex + 1);
       setIsFlipped(false);
-    } else {
-      // Submit round results when all cards have been answered
-      submitRoundMutation.mutate({
-        sessionId: sessionId || "",
-        results: [...results, { flashcardId, isCorrect }],
-        round,
-        totalRounds,
-      });
     }
   };
 
@@ -260,6 +262,27 @@ export default function Flashcards() {
       setCurrentIndex(currentIndex + 1);
       setIsFlipped(false);
     }
+  };
+
+  // Function to handle quitting the session
+  const handleQuitSession = () => {
+    setShowExitConfirmation(true);
+  };
+
+  // Function to confirm quitting the session
+  const confirmQuitSession = () => {
+    // Calculate skipped questions
+    const skippedCount = data.flashcards.length - results.length;
+    const finalResults = {
+      ...stats,
+      skipped: skippedCount,
+      flashcards: data.flashcards.map((card: Flashcard) => ({
+        ...card,
+        isCorrect: results.find(r => r.flashcardId === card.id)?.isCorrect || false
+      }))
+    };
+    sessionStorage.setItem(`results-${sessionId}`, JSON.stringify(finalResults));
+    setLocation(`/results/${sessionId}`);
   };
 
   // Loading state
@@ -303,78 +326,102 @@ export default function Flashcards() {
             <i className="fas fa-brain text-primary text-2xl"></i>
             <h1 className="text-xl font-bold">FlashLearn</h1>
           </div>
-          
-          <div className="flex items-center space-x-4">
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="flex items-center space-x-1 border-red-400 text-red-500"
-              onClick={() => setLocation('/')}
-            >
-              <i className="fas fa-sign-out-alt"></i>
-              <span>Quit Session</span>
-            </Button>
-            
-            {!isMobile && (
-              <ScoreDisplay 
-                correct={stats.correct}
-                incorrect={stats.incorrect}
-                percentage={stats.percentage}
-              />
-            )}
-          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="flex items-center space-x-1 border-red-400 text-red-500"
+            onClick={handleQuitSession}
+          >
+            <i className="fas fa-sign-out-alt"></i>
+            <span>Quit Session</span>
+          </Button>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-grow p-4 md:p-8 flex flex-col items-center justify-start">
-        {/* Mobile Score Display */}
-        {isMobile && (
-          <div className="mb-6 w-full">
-            <ScoreDisplay 
-              correct={stats.correct}
-              incorrect={stats.incorrect}
-              percentage={stats.percentage}
-              isMobile
-            />
-          </div>
-        )}
-
         <div className="max-w-4xl w-full">
-          {/* Progress Tracking */}
-          <div className="mb-6 w-full">
-            <div className="flex justify-between items-center mb-2">
-              <div className="text-sm font-medium text-muted-foreground">
-                Progress: <span className="font-bold text-foreground">{currentIndex + 1}</span>/<span>{data.flashcards.length}</span>
+          {/* Stats and Progress Section */}
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            {/* Stats Grid */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <motion.div 
+                whileHover={{ scale: 1.05 }}
+                className="bg-green-100 p-4 rounded-lg text-center"
+              >
+                <div className="text-2xl font-bold text-green-600">{stats.correct}</div>
+                <div className="text-sm text-green-700">Correct</div>
+              </motion.div>
+              <motion.div 
+                whileHover={{ scale: 1.05 }}
+                className="bg-red-100 p-4 rounded-lg text-center"
+              >
+                <div className="text-2xl font-bold text-red-600">{stats.incorrect}</div>
+                <div className="text-sm text-red-700">Incorrect</div>
+              </motion.div>
+              <motion.div 
+                whileHover={{ scale: 1.05 }}
+                className="bg-blue-100 p-4 rounded-lg text-center"
+              >
+                <div className="text-2xl font-bold text-blue-600">{stats.percentage}%</div>
+                <div className="text-sm text-blue-700">Accuracy</div>
+              </motion.div>
+            </div>
+
+            {/* Progress Section */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Progress: <span className="font-bold text-foreground">{currentIndex + 1}</span>/<span>{data?.flashcards?.length}</span>
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Round: <span className="font-bold text-foreground">{round}</span>/<span>{totalRounds}</span>
+                </div>
               </div>
-              <div className="text-sm font-medium text-muted-foreground">
-                Round: <span className="font-bold text-foreground">{round}</span>/<span>{totalRounds}</span>
+              <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ 
+                    width: `${((currentIndex + 1) / (data?.flashcards?.length || 1)) * 100}%` 
+                  }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="absolute h-full bg-gradient-to-r from-primary to-primary-light rounded-full"
+                />
               </div>
             </div>
-            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-              <div 
-                className="bg-primary h-3 rounded-full animate-progress" 
-                style={{ 
-                  width: `${((currentIndex + 1) / data.flashcards.length) * 100}%`,
-                  transition: "width 0.5s ease-out"
-                }}
-              ></div>
-            </div>
-          </div>
+          </motion.div>
 
           {/* Flashcard */}
-          {data.flashcards[currentIndex] && (
-            <FlashcardContainer
-              flashcard={data.flashcards[currentIndex]}
-              isFlipped={isFlipped}
-              onFlip={() => setIsFlipped(!isFlipped)}
-              onKnow={() => handleResponse(true)}
-              onDontKnow={() => handleResponse(false)}
-            />
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentIndex}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.3 }}
+            >
+              {data?.flashcards[currentIndex] && (
+                <FlashcardContainer
+                  flashcard={data.flashcards[currentIndex]}
+                  isFlipped={isFlipped}
+                  onFlip={() => setIsFlipped(!isFlipped)}
+                  onKnow={() => handleResponse(true)}
+                  onDontKnow={() => handleResponse(false)}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
 
           {/* Card Navigation */}
-          <div className="flex justify-between mt-6">
+          <motion.div 
+            className="flex justify-between mt-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
             <button 
               className={`text-gray-500 hover:text-gray-700 flex items-center space-x-1 ${currentIndex === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
               onClick={handlePrevious}
@@ -384,16 +431,30 @@ export default function Flashcards() {
               <span className="text-sm">Previous</span>
             </button>
             <button 
-              className={`text-gray-500 hover:text-gray-700 flex items-center space-x-1 ${currentIndex === data.flashcards.length - 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`text-gray-500 hover:text-gray-700 flex items-center space-x-1 ${currentIndex === (data?.flashcards?.length || 0) - 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
               onClick={handleNext}
-              disabled={currentIndex === data.flashcards.length - 1}
+              disabled={currentIndex === (data?.flashcards?.length || 0) - 1}
             >
               <span className="text-sm">Next</span>
               <i className="fas fa-arrow-right"></i>
             </button>
-          </div>
+          </motion.div>
         </div>
       </main>
+
+      {/* Render confirmation dialog */}
+      {showExitConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-lg font-bold mb-4">Confirm Exit</h2>
+            <p className="mb-4">Are you sure you want to quit the session? Your progress will be saved.</p>
+            <div className="flex justify-end space-x-4">
+              <Button onClick={() => setShowExitConfirmation(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={confirmQuitSession}>Yes, Quit</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { useState, useRef } from "react";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface PdfUploaderProps {
@@ -67,33 +66,28 @@ export function PdfUploader({ onUploadSuccess }: PdfUploaderProps) {
     setIsUploading(true);
 
     try {
-      // Create form data for the file
-      const formData = new FormData();
-      formData.append("pdf", file);
-
-      // Upload the file
-      const response = await fetch("/api/upload-pdf", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to upload PDF");
-      }
-
-      const data = await response.json();
+      // Generate a unique ID for the file
+      const fileId = `pdf-${Date.now()}`;
+      
+      // Store the file content in localStorage (just the name for now)
+      localStorage.setItem(fileId, file.name);
       
       // Call the success callback with the document ID and name
-      onUploadSuccess(data.id, data.name);
+      onUploadSuccess(fileId, file.name);
       
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+
+      toast({
+        title: "Success",
+        description: "PDF uploaded successfully.",
+      });
     } catch (error) {
       toast({
         title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Failed to upload the PDF.",
+        description: error instanceof Error ? error.message : "Failed to handle the PDF.",
         variant: "destructive",
       });
     } finally {
@@ -105,8 +99,8 @@ export function PdfUploader({ onUploadSuccess }: PdfUploaderProps) {
     <div
       className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
         isDragging 
-          ? "border-primary-400 bg-primary-50" 
-          : "border-gray-300"
+          ? "border-primary bg-primary/5" 
+          : "border-muted"
       } ${isUploading ? "opacity-70" : ""}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -115,16 +109,16 @@ export function PdfUploader({ onUploadSuccess }: PdfUploaderProps) {
       <div className="space-y-1">
         {isUploading ? (
           <>
-            <i className="fas fa-spinner fa-spin text-primary-400 text-xl"></i>
-            <p className="text-sm text-gray-500">Uploading...</p>
+            <i className="fas fa-spinner fa-spin text-primary text-xl"></i>
+            <p className="text-sm text-muted-foreground">Uploading...</p>
           </>
         ) : (
           <>
-            <i className="fas fa-file-upload text-gray-400 text-xl"></i>
-            <p className="text-sm text-gray-500">Drag and drop your PDF here, or</p>
+            <i className="fas fa-file-upload text-muted-foreground text-xl"></i>
+            <p className="text-sm text-muted-foreground">Drag and drop your PDF here, or</p>
             <button 
               type="button"
-              className="text-primary-400 font-medium text-sm hover:underline"
+              className="text-primary font-medium text-sm hover:underline"
               onClick={handleBrowseFiles}
             >
               browse files

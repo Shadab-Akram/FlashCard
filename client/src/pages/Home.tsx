@@ -5,6 +5,7 @@ import ScoreDisplay from "@/components/ScoreDisplay";
 import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useMediaQuery } from "@/hooks/use-mobile";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
   const [settingsPanelVisible, setSettingsPanelVisible] = useState(false);
@@ -23,21 +24,12 @@ export default function Home() {
           
           <div className="flex items-center space-x-3">
             <ThemeToggle />
-            
-            {isMobile ? (
-              <button 
-                onClick={() => setSettingsPanelVisible(!settingsPanelVisible)}
-                className="md:hidden bg-muted p-2 rounded-full"
-              >
-                <i className="fas fa-cog text-muted-foreground"></i>
-              </button>
-            ) : null}
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-grow flex flex-col md:flex-row">
+      <main className="flex-grow flex flex-col md:flex-row relative">
         {/* Settings Panel - Hidden by default on mobile */}
         <div 
           className={`
@@ -98,19 +90,26 @@ export default function Home() {
                   </CardContent>
                 </Card>
               </div>
-
-              {isMobile && (
-                <button 
-                  onClick={() => setSettingsPanelVisible(true)}
-                  className="md:hidden w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 transition-opacity mt-6 flex items-center justify-center space-x-2"
-                >
-                  <i className="fas fa-cog"></i>
-                  <span>Configure Study Settings</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
+
+        {/* Floating Action Button */}
+        <AnimatePresence>
+          {isMobile && (
+            <motion.button
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setSettingsPanelVisible(!settingsPanelVisible)}
+              className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center z-50 hover:bg-primary/90 transition-colors"
+            >
+              <i className={`fas fa-${settingsPanelVisible ? 'times' : 'cog'} text-xl`}></i>
+            </motion.button>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
